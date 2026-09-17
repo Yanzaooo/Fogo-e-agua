@@ -1,0 +1,817 @@
+/**
+ * ELEMENTOS: DUPLA IMPOSSÍVEL
+ * Game Engine implementation - v4.0 (Professional Menu & Mode Overhaul)
+ */
+
+const CONFIG = {
+    GRAVITY: 0.6,
+    FRICTION: 0.8,
+    PLAYER_SPEED: 5,
+    JUMP_FORCE: -14,
+    FUSION_DISTANCE: 60,
+    FUSION_TIME_REQUIRED: 100,
+};
+
+// --- Settings Management ---
+class SettingsManager {
+    constructor() {
+        this.defaults = {
+            musicEnabled: true,
+            musicVolume: 0.5,
+            sfxEnabled: true,
+            sfxVolume: 0.5
+        };
+        this.settings = this.load();
+    }
+
+    load() {
+        const saved = localStorage.getItem('elementos_settings');
+        return saved ? JSON.parse(saved) : { ...this.defaults };
+    }
+
+    save(newSettings) {
+        this.settings = { ...this.settings, ...newSettings };
+        localStorage.setItem('elementos_settings', JSON.stringify(this.settings));
+    }
+
+    get(key) {
+        return this.settings[key];
+    }
+}
+
+// --- Audio Management (Stub) ---
+class AudioManager {
+    constructor(settingsManager) {
+        this.sm = settingsManager;
+        console.log("AudioManager initialized. Music and SFX levels set.");
+    }
+
+    playSfx(name) {
+        if (!this.sm.get('sfxEnabled')) return;
+        const vol = this.sm.get('sfxVolume');
+        console.log(`Playing SFX: ${name} at volume ${vol}`);
+        // Integration point for actual Audio objects
+    }
+
+    playMusic(name) {
+        if (!this.sm.get('musicEnabled')) return;
+        const vol = this.sm.get('musicVolume');
+        console.log(`Playing Music: ${name} at volume ${vol}`);
+        // Integration point for actual Audio objects
+    }
+
+    updateVolumes() {
+        console.log("Audio volumes updated from settings.");
+    }
+}
+
+const LEVELS = [
+    {
+        name: "O Despertar",
+        platforms: [
+            { x: 0, y: 580, w: 1200, h: 40, type: 'stone' },
+            { x: 200, y: 480, w: 200, h: 20, type: 'stone' },
+            { x: 450, y: 380, w: 200, h: 20, type: 'stone' },
+            { x: 700, y: 280, w: 200, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 300, y: 560, w: 100, h: 20, type: 'lava' },
+            { x: 600, y: 560, w: 100, h: 20, type: 'water' },
+        ],
+        triggers: [],
+        exit: { x: 1100, y: 500, w: 60, h: 80 },
+        description: "Básico: Cheguem juntos à saída!"
+    },
+    {
+        name: "Sincronia Elemental",
+        platforms: [
+            { x: 0, y: 580, w: 1200, h: 40, type: 'stone' },
+            { x: 100, y: 450, w: 150, h: 20, type: 'stone' },
+            { x: 900, y: 450, w: 150, h: 20, type: 'stone' },
+            { x: 500, y: 350, w: 250, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 200, y: 560, w: 800, h: 20, type: 'lava' },
+        ],
+        triggers: [
+            { x: 120, y: 430, w: 40, h: 20, type: 'plate', active: false, target: 'gate1' },
+            { x: 920, y: 430, w: 40, h: 20, type: 'plate', active: false, target: 'gate1' },
+            { x: 550, y: 250, w: 100, h: 100, type: 'gate', id: 'gate1', open: false }
+        ],
+        exit: { x: 570, y: 200, w: 60, h: 80 },
+        description: "Cooperativo: Pistem nos dois botões juntos para abrir o portal!"
+    },
+    {
+        name: "A Fusão Perfeita",
+        platforms: [
+            { x: 0, y: 580, w: 1200, h: 40, type: 'stone' },
+            { x: 0, y: 500, w: 200, h: 20, type: 'stone' },
+            { x: 300, y: 400, w: 150, h: 20, type: 'stone' },
+            { x: 600, y: 400, w: 150, h: 20, type: 'stone' },
+            { x: 900, y: 400, w: 150, h: 20, type: 'stone' },
+            { x: 1100, y: 500, w: 100, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 200, y: 560, w: 300, h: 20, type: 'lava' },
+            { x: 500, y: 560, w: 300, h: 20, type: 'water' },
+            { x: 800, y: 560, w: 300, h: 20, type: 'lava' },
+            { x: 1100, y: 560, w: 100, h: 20, type: 'water' },
+        ],
+        triggers: [],
+        exit: { x: 1120, y: 420, w: 60, h: 80 },
+        description: "Desafio Final: Usem a fusão para atravessar as zonas elementais!"
+    },
+    {
+        name: "O Labirinto de Cristal",
+        platforms: [
+            { x: 0, y: 580, w: 300, h: 40, type: 'stone' },
+            { x: 300, y: 450, w: 200, h: 20, type: 'stone' },
+            { x: 600, y: 450, w: 200, h: 20, type: 'stone' },
+            { x: 900, y: 580, w: 300, h: 40, type: 'stone' },
+            { x: 450, y: 300, w: 300, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 300, y: 560, w: 600, h: 20, type: 'lava' },
+        ],
+        triggers: [
+            { x: 350, y: 430, w: 40, h: 20, type: 'plate', active: false, target: 'gate2' },
+            { x: 650, y: 430, w: 40, h: 20, type: 'plate', active: false, target: 'gate2' },
+            { x: 550, y: 200, w: 100, h: 100, type: 'gate', id: 'gate2', open: false }
+        ],
+        exit: { x: 570, y: 100, w: 60, h: 80 },
+        description: "Coordenação: Abram a porta central para subir!"
+    },
+    {
+        name: "Ilhas Flutuantes",
+        platforms: [
+            { x: 0, y: 580, w: 200, h: 40, type: 'stone' },
+            { x: 250, y: 480, w: 100, h: 20, type: 'stone' },
+            { x: 450, y: 380, w: 100, h: 20, type: 'stone' },
+            { x: 650, y: 280, w: 100, h: 20, type: 'stone' },
+            { x: 850, y: 380, w: 100, h: 20, type: 'stone' },
+            { x: 1050, y: 480, w: 150, h: 40, type: 'stone' },
+        ],
+        hazards: [
+            { x: 0, y: 600, w: 1200, h: 100, type: 'lava' },
+        ],
+        triggers: [],
+        exit: { x: 1120, y: 400, w: 60, h: 80 },
+        description: "Precisão: Saltos calculados sobre a lava!"
+    },
+    {
+        name: "O Corredor Elementar",
+        platforms: [
+            { x: 0, y: 580, w: 1200, h: 40, type: 'stone' },
+            { x: 400, y: 450, w: 400, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 200, y: 560, w: 400, h: 20, type: 'water' },
+            { x: 600, y: 560, w: 400, h: 20, type: 'lava' },
+        ],
+        triggers: [],
+        exit: { x: 1120, y: 500, w: 60, h: 80 },
+        description: "Fusão Necessária: Ativem a fusão para cruzar o corredor!"
+    },
+    {
+        name: "Torre de Pressão",
+        platforms: [
+            { x: 0, y: 580, w: 1200, h: 40, type: 'stone' },
+            { x: 200, y: 450, w: 100, h: 20, type: 'stone' },
+            { x: 400, y: 350, w: 100, h: 20, type: 'stone' },
+            { x: 600, y: 250, w: 100, h: 20, type: 'stone' },
+            { x: 800, y: 350, w: 100, h: 20, type: 'stone' },
+            { x: 1000, y: 450, w: 100, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 300, y: 560, w: 600, h: 20, type: 'water' },
+        ],
+        triggers: [
+            { x: 230, y: 430, w: 40, h: 20, type: 'plate', active: false, target: 'gate3' },
+            { x: 1030, y: 430, w: 40, h: 20, type: 'plate', active: false, target: 'gate3' },
+            { x: 550, y: 150, w: 100, h: 100, type: 'gate', id: 'gate3', open: false }
+        ],
+        exit: { x: 570, y: 50, w: 60, h: 80 },
+        description: "Sincronia: Subam a torre e ativem as placas!"
+    },
+    {
+        name: "O Espelho",
+        platforms: [
+            { x: 0, y: 580, w: 400, h: 40, type: 'stone' },
+            { x: 800, y: 580, w: 400, h: 40, type: 'stone' },
+            { x: 400, y: 450, w: 400, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 400, y: 560, w: 400, h: 20, type: 'lava' },
+            { x: 200, y: 560, w: 300, h: 20, type: 'water' },
+        ],
+        triggers: [],
+        exit: { x: 600, y: 320, w: 60, h: 80 },
+        description: "Simetria: Cada um no seu lado, encontrem-se no meio!"
+    },
+    {
+        name: "Vácuo Elemental",
+        platforms: [
+            { x: 0, y: 580, w: 200, h: 40, type: 'stone' },
+            { x: 300, y: 500, w: 100, h: 20, type: 'stone' },
+            { x: 450, y: 400, w: 100, h: 20, type: 'stone' },
+            { x: 600, y: 500, w: 100, h: 20, type: 'stone' },
+            { x: 900, y: 580, w: 200, h: 40, type: 'stone' },
+            { x: 500, y: 300, w: 200, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 200, y: 560, w: 1000, h: 20, type: 'lava' },
+        ],
+        triggers: [
+            { x: 330, y: 480, w: 40, h: 20, type: 'plate', active: false, target: 'gate4' },
+            { x: 630, y: 480, w: 40, h: 20, type: 'plate', active: false, target: 'gate4' },
+            { x: 550, y: 200, w: 100, h: 100, type: 'gate', id: 'gate4', open: false }
+        ],
+        exit: { x: 570, y: 100, w: 60, h: 80 },
+        description: "Tensão: Saltos precisos e botões coordenados!"
+    },
+    {
+        name: "O Ápice Final",
+        platforms: [
+            { x: 0, y: 580, w: 300, h: 40, type: 'stone' },
+            { x: 300, y: 480, w: 200, h: 20, type: 'stone' },
+            { x: 600, y: 380, w: 200, h: 20, type: 'stone' },
+            { x: 900, y: 280, w: 200, h: 20, type: 'stone' },
+            { x: 400, y: 200, w: 400, h: 20, type: 'stone' },
+        ],
+        hazards: [
+            { x: 300, y: 560, w: 900, h: 20, type: 'lava' },
+            { x: 200, y: 560, w: 200, h: 20, type: 'water' },
+        ],
+        triggers: [
+            { x: 100, y: 560, w: 40, h: 20, type: 'plate', active: false, target: 'gateFinal' },
+            { x: 1100, y: 260, w: 40, h: 20, type: 'plate', active: false, target: 'gateFinal' },
+            { x: 550, y: 100, w: 100, h: 100, type: 'gate', id: 'gateFinal', open: false }
+        ],
+        exit: { x: 570, y: 0, w: 60, h: 80 },
+        description: "O Fim: Use TUDO o que aprendeu para vencer!"
+    }
+];
+
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+
+        // State Machine
+        this.gameState = 'MENU';
+        this.gameMode = 2;
+        this.activePlayerIndex = 0;
+        this.currentLevelIndex = 0;
+
+        this.players = [];
+        this.platforms = [];
+        this.hazards = [];
+        this.triggers = [];
+        this.exit = null;
+        this.particles = [];
+
+        this.fusionCharge = 0;
+        this.isFused = false;
+        this.fusionTimer = 0;
+
+        this.keys = {};
+
+        // Systems
+        this.settings = new SettingsManager();
+        this.audio = new AudioManager(this.settings);
+
+        this.initInputs();
+        this.loadLevel(this.currentLevelIndex);
+        this.setupMenuListeners();
+        this.loop();
+    }
+
+    initInputs() {
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+            this.keys[e.key?.toLowerCase()] = true;
+
+            if (this.gameState === 'PLAYING' && this.gameMode === 1 && (e.code === 'Tab' || e.key === 'Tab')) {
+                e.preventDefault();
+                const p = this.players[0];
+                if (p) {
+                    p.element = p.element === 'fire' ? 'water' : 'fire';
+
+                    // Visual feedback for transformation
+                    for(let i=0; i<20; i++) {
+                        this.particles.push(new Particle(p.x + p.w/2, p.y + p.h/2, p.element));
+                    }
+                }
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
+            this.keys[e.key?.toLowerCase()] = false;
+        });
+    }
+
+    setupMenuListeners() {
+        document.getElementById('btn-play-1p').addEventListener('click', () => this.startGame(1));
+        document.getElementById('btn-play-2p').addEventListener('click', () => this.startGame(2));
+        document.getElementById('btn-settings').addEventListener('click', () => this.setScreen('SETTINGS'));
+        document.getElementById('btn-settings-back').addEventListener('click', () => this.setScreen('MENU'));
+        document.getElementById('btn-how-to').addEventListener('click', () => {
+            alert("Ajude seu parceiro a chegar ao final! Fogo morre na água e Água morre no fogo. Usem a Fusão Elemental para atravessar perigos!");
+        });
+
+        // Event delegation for start game button (since it's recreated in tutorial)
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'btn-start-game') {
+                this.setScreen('PLAYING');
+                this.gameState = 'PLAYING';
+                this.canvas.focus();
+            }
+        });
+
+        document.getElementById('btn-restart-level').addEventListener('click', () => this.restartLevel());
+    }
+
+    setScreen(screenId) {
+        const screens = {
+            'MENU': 'main-menu',
+            'TUTORIAL': 'tutorial-screen',
+            'PLAYING': 'game-screen',
+            'SETTINGS': 'settings-screen'
+        };
+
+        Object.values(screens).forEach(id => {
+            document.getElementById(id).classList.remove('active');
+        });
+
+        const targetId = screens[screenId];
+        if (targetId) {
+            document.getElementById(targetId).classList.add('active');
+        }
+
+        if (screenId === 'SETTINGS') {
+            this.loadSettingsUI();
+        }
+    }
+
+    loadSettingsUI() {
+        document.getElementById('set-music-enable').checked = this.settings.get('musicEnabled');
+        document.getElementById('set-music-vol').value = this.settings.get('musicVolume');
+        document.getElementById('set-sfx-enable').checked = this.settings.get('sfxEnabled');
+        document.getElementById('set-sfx-vol').value = this.settings.get('sfxVolume');
+
+        const listeners = [
+            { id: 'set-music-enable', key: 'musicEnabled', type: 'checkbox' },
+            { id: 'set-music-vol', key: 'musicVolume', type: 'range' },
+            { id: 'set-sfx-enable', key: 'sfxEnabled', type: 'checkbox' },
+            { id: 'set-sfx-vol', key: 'sfxVolume', type: 'range' },
+        ];
+
+        listeners.forEach(l => {
+            const el = document.getElementById(l.id);
+            el.onchange = (e) => {
+                const val = l.type === 'checkbox' ? e.target.checked : parseFloat(e.target.value);
+                this.settings.save({ [l.key]: val });
+                this.audio.updateVolumes();
+            };
+        });
+    }
+
+    startGame(mode) {
+        this.gameMode = mode;
+        this.activePlayerIndex = 0;
+        this.currentLevelIndex = 0;
+        this.loadLevel(this.currentLevelIndex);
+
+        this.setScreen('TUTORIAL');
+        this.gameState = 'TUTORIAL';
+        this.updateTutorialText();
+    }
+
+    updateTutorialText() {
+        const tutorial = document.querySelector('.tutorial-content');
+        if (this.gameMode === 1) {
+            tutorial.innerHTML = `
+                <h2 style="font-family: 'Orbitron', sans-serif; margin-bottom: 40px; font-size: 2rem;">CONTROLES (1 JOGADOR)</h2>
+                <div class="controls-grid">
+                    <div class="control-box fire">
+                        <div class="char-icon fire-icon">🔥</div>
+                        <h3 style="font-family: 'Orbitron', sans-serif; margin-bottom: 15px;">FOGO</h3>
+                        <p>W: Pular | A: Esquerda | D: Direita</p>
+                        <p class="warning">🚫 Morre na Água</p>
+                    </div>
+                    <div class="control-box water">
+                        <div class="char-icon water-icon">💧</div>
+                        <h3 style="font-family: 'Orbitron', sans-serif; margin-bottom: 15px;">ÁGUA</h3>
+                        <p>W: Pular | A: Esquerda | D: Direita</p>
+                        <p class="warning">🚫 Morre no Fogo/Lava</p>
+                    </div>
+                </div>
+                <div style="margin-bottom: 30px; font-family: 'Orbitron', sans-serif; font-size: 1.5rem; color: var(--accent-gold);">
+                    TECLA TAB: Transformar Elemento
+                </div>
+                <button class="btn-menu" id="btn-start-game">COMEÇAR AVENTURA</button>
+            `;
+        } else {
+            tutorial.innerHTML = `
+                <h2 style="font-family: 'Orbitron', sans-serif; margin-bottom: 40px; font-size: 2rem;">CONTROLES (2 JOGADORES)</h2>
+                <div class="controls-grid">
+                    <div class="control-box fire">
+                        <div class="char-icon fire-icon">🔥</div>
+                        <h3 style="font-family: 'Orbitron', sans-serif; margin-bottom: 15px;">JOGADOR 1: FOGO</h3>
+                        <p>W: Pular | A: Esquerda | D: Direita</p>
+                        <p class="warning">🚫 Morre na Água</p>
+                    </div>
+                    <div class="control-box water">
+                        <div class="char-icon water-icon">💧</div>
+                        <h3 style="font-family: 'Orbitron', sans-serif; margin-bottom: 15px;">JOGADOR 2: ÁGUA</h3>
+                        <p>↑: Pular | ←: Esquerda | →: Direita</p>
+                        <p class="warning">🚫 Morre no Fogo/Lava</p>
+                    </div>
+                </div>
+                <button class="btn-menu" id="btn-start-game">COMEÇAR AVENTURA</button>
+            `;
+        }
+    }
+
+    loadLevel(index) {
+        const lvl = LEVELS[index];
+        this.platforms = [...lvl.platforms];
+        this.hazards = [...lvl.hazards];
+        this.triggers = lvl.triggers.map(t => ({ ...t, timer: 0 }));
+        this.exit = { ...lvl.exit };
+
+        const startY = Math.min(500, this.height - 100);
+
+        if (this.gameMode === 1) {
+            // 1 PLAYER: Single character that transforms
+            this.players = [
+                new Player(100, startY, 'fire', {
+                    left: 'KeyA', right: 'KeyD', jump: 'KeyW',
+                    altLeft: 'ArrowLeft', altRight: 'ArrowRight', altJump: 'ArrowUp'
+                })
+            ];
+        } else {
+            // 2 PLAYERS: Two distinct characters
+            this.players = [
+                new Player(100, startY, 'fire', { left: 'KeyA', right: 'KeyD', jump: 'KeyW' }),
+                new Player(150, startY, 'water', { left: 'ArrowLeft', right: 'ArrowRight', jump: 'ArrowUp' })
+            ];
+        }
+
+        this.fusionCharge = 0;
+        this.isFused = false;
+    }
+
+    restartLevel() {
+        document.getElementById('game-over').classList.add('hidden');
+        this.loadLevel(this.currentLevelIndex);
+        this.gameState = 'PLAYING';
+    }
+
+    nextLevel() {
+        this.currentLevelIndex++;
+        if (this.currentLevelIndex < LEVELS.length) {
+            this.loadLevel(this.currentLevelIndex);
+        } else {
+            this.endGame(true);
+        }
+    }
+
+    update() {
+        if (this.gameState !== 'PLAYING') return;
+
+        this.players.forEach((p, index) => {
+            // In 2P, both are controlled. In 1P, the only player is controlled.
+            const isControlled = (this.gameMode === 2) || (this.gameMode === 1 && index === 0);
+            p.update(this.keys, this.platforms, this.hazards, this.isFused, isControlled);
+            if (p.y > this.height) p.dead = true;
+            if (p.dead) this.endGame(false);
+        });
+
+        // Trigger Logic (with 1P adaptation)
+        const plates = this.triggers.filter(t => t.type === 'plate');
+        if (this.gameMode === 1) {
+            // SINGLE PLAYER: Plates stay active for a short time to allow solo puzzle solving
+            plates.forEach(plate => {
+                const isPressed = this.players.some(p => p.rectIntersect(p, plate));
+                if (isPressed) {
+                    plate.active = true;
+                    plate.timer = 180; // Stay active for 3 seconds (60fps * 3)
+                } else if (plate.timer > 0) {
+                    plate.timer--;
+                    if (plate.timer <= 0) plate.active = false;
+                }
+            });
+        } else {
+            // MULTIPLAYER: Classic logic - must have both pressed
+            if (plates.length >= 2) {
+                const plate1Active = plates[0].active;
+                const plate2Active = plates[1].active;
+                const gate = this.triggers.find(t => t.id === 'gate1' || t.id === 'gate2' || t.id === 'gate3' || t.id === 'gate4' || t.id === 'gateFinal');
+                if (gate) {
+                    if (plate1Active && plate2Active) gate.unlocked = true;
+                    if (gate.unlocked) {
+                        gate.open = true;
+                        gate.y -= 2;
+                        if (gate.y < -100) gate.y = -100;
+                    }
+                }
+            }
+        }
+
+        // General Gate opening for 1P (if plate is active)
+        if (this.gameMode === 1) {
+            const anyPlateActive = plates.some(p => p.active);
+            const gate = this.triggers.find(t => t.type === 'gate');
+            if (gate && anyPlateActive) {
+                gate.unlocked = true;
+                gate.open = true;
+                gate.y -= 2;
+                if (gate.y < -100) gate.y = -100;
+            }
+        }
+
+        // Fusion Logic
+        if (this.gameMode === 2) {
+            const p1 = this.players[0];
+            const p2 = this.players[1];
+            const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+
+            if (dist < CONFIG.FUSION_DISTANCE) {
+                this.fusionCharge = Math.min(100, this.fusionCharge + 0.5);
+                if (this.fusionCharge >= 100) {
+                    this.isFused = true;
+                    this.fusionTimer = 300;
+                }
+            } else {
+                this.fusionCharge = Math.max(0, this.fusionCharge - 1);
+            }
+
+            if (this.isFused) {
+                this.fusionTimer--;
+                if (this.fusionTimer <= 0) {
+                    this.isFused = false;
+                    this.fusionCharge = 0;
+                }
+            }
+        } else {
+            // 1P Fusion: Always active or simplified
+            this.isFused = true;
+            this.fusionCharge = 100;
+        }
+
+        // Victory Condition
+        if (this.gameMode === 1) {
+            const p = this.players[0];
+            if (p.x > this.exit.x && p.x < this.exit.x + this.exit.w && p.y < this.exit.y + this.exit.h) {
+                this.nextLevel();
+            }
+        } else {
+            const p1 = this.players[0];
+            const p2 = this.players[1];
+            if (p1.x > this.exit.x && p1.x < this.exit.x + this.exit.w && p1.y < this.exit.y + this.exit.h &&
+                p2.x > this.exit.x && p2.x < this.exit.x + this.exit.w && p2.y < this.exit.y + this.exit.h) {
+                this.nextLevel();
+            }
+        }
+
+        this.players.forEach(p => {
+            if (Math.random() > 0.5) this.particles.push(new Particle(p.x + p.w/2, p.y + p.h/2, p.element));
+        });
+        this.particles = this.particles.filter(p => p.life > 0);
+        this.particles.forEach(p => p.update());
+
+        document.getElementById('fusion-fill').style.width = `${this.fusionCharge}%`;
+        document.getElementById('fire-life').textContent = this.players[0].dead ? 'Morto' : 'Vivo';
+        if (this.gameMode === 2) {
+            document.getElementById('water-life').textContent = this.players[1].dead ? 'Morto' : 'Vivo';
+        } else {
+            document.getElementById('water-life').textContent = '---';
+        }
+    }
+
+    isMovementSafe(player, direction) {
+        let probe = { x: player.x, y: player.y, w: player.w, h: player.h };
+        if (direction === 'right') probe.x += player.w + 5;
+        if (direction === 'left') probe.x -= 5;
+
+        for (const h of this.hazards) {
+            if (player.rectIntersect(probe, h)) {
+                if (player.element === 'fire' && h.type === 'water') return false;
+                if (player.element === 'water' && h.type === 'lava') return false;
+            }
+        }
+        return true;
+    }
+
+    draw() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+        this.ctx.fillStyle = '#141425';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 24px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(`Fase ${this.currentLevelIndex + 1} / ${LEVELS.length}`, this.width / 2, 40);
+        this.ctx.textAlign = 'left';
+
+        this.hazards.forEach(h => {
+            this.ctx.fillStyle = h.type === 'lava' ? '#ff4d00' : '#00d4ff';
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowColor = this.ctx.fillStyle;
+            this.ctx.fillRect(h.x, h.y, h.w, h.h);
+            this.ctx.shadowBlur = 0;
+        });
+
+        this.ctx.fillStyle = '#3a3a5a';
+        this.platforms.forEach(p => this.ctx.fillRect(p.x, p.y, p.w, p.h));
+
+        this.triggers.forEach(t => {
+            if (t.type === 'plate') {
+                this.ctx.fillStyle = t.active ? '#ffd700' : '#555';
+                this.ctx.fillRect(t.x, t.y, t.w, t.h);
+            } else if (t.type === 'gate') {
+                this.ctx.fillStyle = '#222';
+                this.ctx.fillRect(t.x, t.y, t.w, t.h);
+                this.ctx.strokeStyle = '#ffd700';
+                this.ctx.strokeRect(t.x, t.y, t.w, t.h);
+            }
+        });
+
+        this.ctx.fillStyle = '#4dff88';
+        this.ctx.shadowBlur = 20;
+        this.ctx.shadowColor = '#4dff88';
+        this.ctx.fillRect(this.exit.x, this.exit.y, this.exit.w, this.exit.h);
+        this.ctx.shadowBlur = 0;
+
+        this.players.forEach((p, index) => {
+            p.draw(this.ctx, this.gameMode === 1 && index === this.activePlayerIndex);
+        });
+        this.particles.forEach(p => p.draw(this.ctx));
+
+        if (this.isFused) {
+            const p1 = this.players[0];
+            const p2 = this.players[1];
+            const centerX = (p1.x + p2.x) / 2;
+            const centerY = (p1.y + p2.y) / 2;
+            this.ctx.beginPath();
+            this.ctx.arc(centerX + 20, centerY + 20, 120, 0, Math.PI * 2);
+            this.ctx.strokeStyle = 'white';
+            this.ctx.lineWidth = 5;
+            this.ctx.stroke();
+        }
+    }
+
+    loop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.loop());
+    }
+
+    endGame(win) {
+        this.gameState = 'OVER';
+        const over = document.getElementById('game-over');
+        const winDiv = document.getElementById('game-win');
+        if (win) winDiv.classList.remove('hidden');
+        else over.classList.remove('hidden');
+    }
+}
+
+class Player {
+    constructor(x, y, element, controls) {
+        this.x = x;
+        this.y = y;
+        this.w = 30;
+        this.h = 45;
+        this.element = element;
+        this.controls = controls;
+        this.vx = 0;
+        this.vy = 0;
+        this.onGround = false;
+        this.dead = false;
+    }
+
+    update(keys, platforms, hazards, isFused, isControlled = true) {
+        if (this.dead) return;
+
+        // Use a very broad check for keys to ensure movement
+        const isPressed = (key) => {
+            if (!key) return false;
+            return keys[key] === true || keys[key.toLowerCase()] === true;
+        };
+
+        if (isControlled) {
+            const left = isPressed(this.controls.left) || isPressed(this.controls.altLeft);
+            const right = isPressed(this.controls.right) || isPressed(this.controls.altRight);
+            const jump = isPressed(this.controls.jump) || isPressed(this.controls.altJump);
+
+            if (left) this.vx = -CONFIG.PLAYER_SPEED;
+            else if (right) this.vx = CONFIG.PLAYER_SPEED;
+            else this.vx *= CONFIG.FRICTION;
+
+            if (jump && this.onGround) {
+                this.vy = CONFIG.JUMP_FORCE;
+                this.onGround = false;
+            }
+        } else {
+            this.vx *= CONFIG.FRICTION;
+        }
+
+        this.vy += CONFIG.GRAVITY;
+        this.x += this.vx;
+        this.checkCollision(platforms, 'x');
+        this.y += this.vy;
+        this.checkCollision(platforms, 'y');
+
+        hazards.forEach(h => {
+            if (this.rectIntersect(this, h)) {
+                if (isFused) return;
+                if (this.element === 'fire' && h.type === 'water') this.dead = true;
+                if (this.element === 'water' && h.type === 'lava') this.dead = true;
+            }
+        });
+    }
+
+    checkCollision(platforms, axis) {
+        this.onGround = false;
+        platforms.forEach(p => {
+            if (this.rectIntersect(this, p)) {
+                if (axis === 'x') {
+                    if (this.vx > 0) this.x = p.x - this.w;
+                    else if (this.vx < 0) this.x = p.x + p.w;
+                    this.vx = 0;
+                } else {
+                    if (this.vy > 0) {
+                        this.y = p.y - this.h;
+                        this.onGround = true;
+                    } else if (this.vy < 0) {
+                        this.y = p.y + p.h;
+                    }
+                    this.vy = 0;
+                }
+            }
+        });
+    }
+
+    rectIntersect(r1, r2) {
+        return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
+    }
+
+    draw(ctx, isActive = false) {
+        ctx.save();
+        const grad = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.h);
+        if (this.element === 'fire') {
+            grad.addColorStop(0, '#ffcc00');
+            grad.addColorStop(1, '#ff4d00');
+            ctx.shadowColor = 'rgba(255, 77, 0, 0.8)';
+        } else {
+            grad.addColorStop(0, '#b3faff');
+            grad.addColorStop(1, '#00d4ff');
+            ctx.shadowColor = 'rgba(0, 212, 255, 0.8)';
+        }
+        ctx.fillStyle = grad;
+        ctx.shadowBlur = 15;
+        if (isActive) {
+            ctx.shadowBlur = 30;
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+        }
+        ctx.beginPath();
+        ctx.roundRect(this.x, this.y, this.w, this.h, 8);
+        ctx.fill();
+        if (isActive) ctx.stroke();
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, element) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.life = 1.0;
+        this.element = element;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.02;
+    }
+
+    draw(ctx) {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.element === 'fire' ? '#ff4d00' : '#00d4ff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+window.gameInstance = new Game();

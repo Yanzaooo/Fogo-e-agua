@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elementos: Dupla Impossível</title>
+    <link rel="stylesheet" href="assets/css/game.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Menu Principal -->
+        <div id="main-menu" class="screen active">
+            <div class="menu-background">
+                <div class="bg-particle"></div>
+            </div>
+            <div class="menu-content">
+                <h1 class="game-title">ELEMENTOS<br><span class="subtitle-title">DUPLA IMPOSSÍVEL</span></h1>
+                <p class="menu-subtitle">“Dois jogadores. Dois elementos. Um único caminho.”</p>
+
+                <div class="menu-options">
+                    <button class="btn-menu" id="btn-play-1p">1 JOGADOR</button>
+                    <button class="btn-menu" id="btn-play-2p">2 JOGADORES</button>
+                    <button class="btn-menu" id="btn-how-to">COMO JOGAR</button>
+                    <button class="btn-menu" id="btn-settings">CONFIGURAÇÕES</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tela de Configurações -->
+        <div id="settings-screen" class="screen">
+            <div class="tutorial-content">
+                <h2>CONFIGURAÇÕES</h2>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>Música</label>
+                        <div class="setting-controls">
+                            <input type="checkbox" id="set-music-enable" checked>
+                            <input type="range" id="set-music-vol" min="0" max="1" step="0.1" value="0.5">
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label>Efeitos Sonoros</label>
+                        <div class="setting-controls">
+                            <input type="checkbox" id="set-sfx-enable" checked>
+                            <input type="range" id="set-sfx-vol" min="0" max="1" step="0.1" value="0.5">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-menu" id="btn-settings-back">VOLTAR</button>
+            </div>
+        </div>
+
+        <!-- Tutorial/Controles -->
+        <div id="tutorial-screen" class="screen">
+            <div class="tutorial-content">
+                <h2>CONTROLES</h2>
+                <div class="controls-grid">
+                    <div class="control-box fire">
+                        <div class="char-icon fire-icon">🔥</div>
+                        <h3>JOGADOR 1: FOGO</h3>
+                        <p>W: Pular | A: Esquerda | D: Direita</p>
+                        <p class="warning">🚫 Morre na Água</p>
+                    </div>
+                    <div class="control-box water">
+                        <div class="char-icon water-icon">💧</div>
+                        <h3>JOGADOR 2: ÁGUA</h3>
+                        <p>↑: Pular | ←: Esquerda | →: Direita</p>
+                        <p class="warning">🚫 Morre no Fogo/Lava</p>
+                    </div>
+                </div>
+                <button class="btn-menu" id="btn-start-game">COMEÇAR AVENTURA</button>
+            </div>
+        </div>
+
+        <!-- Canvas do Jogo -->
+        <div id="game-screen" class="screen">
+            <div class="game-hud">
+                <div class="player-status fire-status">🔥 Fogo: <span id="fire-life">Vivo</span></div>
+                <div class="fusion-meter">
+                    <div class="fusion-label">FUSÃO ELEMENTAL</div>
+                    <div class="fusion-bar"><div id="fusion-fill"></div></div>
+                </div>
+                <div class="player-status water-status">💧 Água: <span id="water-life">Vivo</span></div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+            <div id="game-over" class="hidden">
+                <h2 id="game-over-title">FIM DE JOGO</h2>
+                <p id="game-over-msg">Um de vocês sucumbiu ao elemento oposto!</p>
+                <div class="game-over-buttons">
+                    <button class="btn-menu" id="btn-restart-level">TENTAR FASE NOVAMENTE</button>
+                    <button class="btn-menu" onclick="location.reload()">VOLTAR AO MENU</button>
+                </div>
+            </div>
+            <div id="game-win" class="hidden">
+                <h2>MISSÃO CUMPRIDA!</h2>
+                <p>Vocês provaram que a cooperação é a força mais poderosa!</p>
+                <button class="btn-menu" onclick="location.reload()">VOLTAR AO MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/game.js"></script>
+</body>
+</html>
